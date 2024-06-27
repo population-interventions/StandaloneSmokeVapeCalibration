@@ -69,16 +69,16 @@
 	
 	\maketitle
 	
-	\section{Underlying Model}
+	\section{Underlying Simulation Model}
 	
 	The underlying model for smoking and vaping is a compartmental flow model. The model tracks $220$ cohort, where a \emph{cohort} is a combination of age and sex. The model is initialised with \path{initialPrevlance.csv} runs from year 2021 to 2039 inclusive. Within each year, the model increments ages and then evaluates the flows in the model.
 	
-	\subsubsection{Increment Ages}
+	\subsection{Increment Ages}
 	The age of each cohort is incremented at the start of the year. In other words, the prevalence among a cohort of age $n$ at the start of year $t$ is equal to the prevalence of the cohort with age $n-1$ at the end of year $t-1$.
 	
 	Cohorts of age $\geq 110$ are removed, and cohorts of age $0$ are inserted each year. The newly inserted cohorts are initialised with the never smoker state ($n$) set to $1$.
 	
-	\subsubsection{Evaluate Flows}
+	\subsection{Evaluate Flows}
 	
 	Flows are evaluated using a rough approximation, because the rates tend to be low. The quality of the optimisation depends on the number of time steps used.
 	
@@ -107,8 +107,30 @@
 	
 	This process is repeated $s$ times per year.
 	
-	\section{Optimisation}
+	\section{Calibration}
 	
-	The model is 
+	The model is calibrated by modifying a limited set of base flow rates and APCs. The male and female cohorts can be calibrated separately, so sex is ignored for the following.
+	
+	\subsection{Objective Function}
+	The target of the model is the sum of the square of the difference between the prevalence values calculated for each year, and the values in \path{prevalenceTargets.csv}. The target file sets aggregate smoking and vaping targets, rather than targets for particular states in the compartmental model. The aggregates map to the states as follows, and must be computed from model output to compare to the targets.
+	\begin{align*}
+		\text{smoking} &= \left(\text{\path{s}} + \text{\path{sv}}\right) / (1 - \text{\path{dead}}) \\
+		\text{vaping} &= \left(\text{\path{v}} + \text{\path{vrs}} + \text{\path{sv}}\right) / (1 - \text{\path{dead}})
+	\end{align*}
+	Contributions to model score is weighted by \path{scoreWeight.csv}, where the agecategory part of the index is expanded to ages $n$ to $m-1$, where $n$ is the current category and $m$ is the next category. The last category has $m = 110$.
+	
+	In summary, the objective function scores a point in parameters space as follows.
+	\begin{align*}
+		\text{score} := \sum_{a \in [0\ldots110]} \sum_{t \in [2021\ldots2040]} \sum_{B \in \{\text{smoking}, \text{vaping}\}}\left(w_{a, t, B} \left(\text{target $B$}_{a, t} - \text{model $B$}_{a, t}\right)\right)^2
+	\end{align*}
+	The weights are squared for technical reasons to do with how the full framework processes cohort comparisons.
+	
+	\subsection{Parameter Space}
+	The parameter space is a limited set of flows, with pins at particular ages. The parameter space only directly contains the flows \path{n_s}, \path{s_rs}, \path{n_v}, \path{v_rv}, \path{s_vrs} and \path{v_s}. All other flows are either static (as in the case for flows to \path{dead}), or derived from other flows.
+	
+	The parameter has pins at ages 0, 14, 15, 16, 18, 21, 24, 28, 33, 40, 50, 60, 70, 90 and 109. Values for other ages are linearly interpolated between these pins. There are pins at ages. The 14, 15, 16 pins allow for sudden sharp uptake rates at age 15, to capture pre-15 prevalence, and the pins are more frequent for younger ages as the calibration target shows sharper changes in behaviour at these ages.
+	
+	In total, the model has 180 ($6 \times 15 \times 2$) parameters, corresponding to combinations of flows, age pins, and split by base rate and APC. The range of each parameter is defined by the \path{flow_apc_upper}, \path{flow_apc_lower}, \path{flow_rate_upper} and \path{flow_rate_lower} files. These latter two files are indexed by agecategory, which can be expanded in ages as explained in the section above. In practise the model has fewer than 180 parameters since many of them have and upper and lower bound of zero.
+	
 	
 \end{document}
