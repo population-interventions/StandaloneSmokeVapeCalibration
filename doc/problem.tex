@@ -1,0 +1,114 @@
+\documentclass[]{article}
+
+\usepackage[margin=3.4cm]{geometry}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.2cm}
+\renewcommand{\baselinestretch}{1}
+\usepackage[obeyspaces]{url}
+\usepackage{listings}
+
+\usepackage[colorinlistoftodos,prependcaption,textsize=small]{todonotes}
+
+% Default fixed font does not support bold face
+\DeclareFixedFont{\ttb}{T1}{txtt}{bx}{n}{8} % for bold
+\DeclareFixedFont{\ttm}{T1}{txtt}{m}{n}{8}  % for normal
+
+% Tabular stretch
+\def\arraystretch{1.5}
+
+\usepackage{xltabular}
+\usepackage{xcolor}
+\newcommand\textr[1]{\textcolor{red}{#1}}
+
+% Custom colors
+\usepackage{color}
+\definecolor{deepblue}{rgb}{0,0,0.5}
+\definecolor{deepred}{rgb}{0.6,0,0}
+\definecolor{deepgreen}{rgb}{0,0.5,0}
+\usepackage{listings}
+% Python style for highlighting
+\newcommand\pythonstyle{\lstset{
+		language=Python,
+		basicstyle=\ttm,
+		morekeywords={self},              % Add keywords here
+		keywordstyle=\ttb\color{deepblue},
+		emph={MyClass,__init__},          % Custom highlighting
+		emphstyle=\ttb\color{deepred},    % Custom highlighting style
+		stringstyle=\color{deepgreen},
+		frame=tb,                         % Any extra options here
+		showstringspaces=false
+}}
+
+
+% Python environment
+\lstnewenvironment{python}[1][]
+{
+	\pythonstyle
+	\lstset{#1}
+}
+{}
+
+% Python for external files
+\newcommand\pythonexternal[2][]{{
+		\pythonstyle
+		\lstinputlisting[#1]{#2}}}
+
+% Python for inline
+\newcommand\pythoninline[1]{{\pythonstyle\lstinline!#1!}}
+
+% math mode text path-style formating
+\newcommand\mt[1]{\ensuremath{\text{\path{#1}}}}
+
+%opening
+\title{Standalone Smoking Vaping Calibration}
+\author{Tim Wilson}
+
+\begin{document}
+	
+	\maketitle
+	
+	\section{Underlying Model}
+	
+	The underlying model for smoking and vaping is a compartmental flow model. The model tracks $220$ cohort, where a \emph{cohort} is a combination of age and sex. The model is initialised with \path{initialPrevlance.csv} runs from year 2021 to 2039 inclusive. Within each year, the model increments ages and then evaluates the flows in the model.
+	
+	\subsubsection{Increment Ages}
+	The age of each cohort is incremented at the start of the year. In other words, the prevalence among a cohort of age $n$ at the start of year $t$ is equal to the prevalence of the cohort with age $n-1$ at the end of year $t-1$.
+	
+	Cohorts of age $\geq 110$ are removed, and cohorts of age $0$ are inserted each year. The newly inserted cohorts are initialised with the never smoker state ($n$) set to $1$.
+	
+	\subsubsection{Evaluate Flows}
+	
+	Flows are evaluated using a rough approximation, because the rates tend to be low. The quality of the optimisation depends on the number of time steps used.
+	
+	The flow rate are determined by reading the base rate from \path{flow_rate.csv} and applying an annual percentage change (APC), relative to the base year, from \path{flow_apc.csv}. The flow from state $x$ to state $y$ is denoted \path{x_y} in the file. Let $S$ be the states (compartments) of the model, then for $x,y \in S$, the flow rate in year $t$ is
+	\begin{align*}
+		r_{x, y, t} := b_{x,y} (1 + a_{x,y})^{t - 2021}
+	\end{align*}
+	where $b_{x, y}$ is base rate and $a_{x,y}$ is the APC.
+	
+	The flows are applied over a number of time steps, $s$, which defaults to $4$. Within each time step, the total flow out of a state, $x \in S$, is
+	\begin{align*}
+		f_{x, t} := \sum_{s \in S} r_{x, y, t}
+	\end{align*}
+	and the mass that flows from state $x$ to $y \in S$ is
+	\begin{align*}
+		p_{x, y, t} :=\left(1 - e^\frac{-f_{x, t}}{s}\right) \frac{r_{x, y, t}}{f_{x, t}}.
+	\end{align*}
+	Essentially, the flow \emph{rate} out of $x$ is being converted to a proportion, then split proportionally by the contribution each individual flow makes to the rate.
+	
+	The mass, $m_{x}$ of a state is then updated as follows
+	\begin{align*}
+		\text{out}_x :=& m_x\sum_{s \in S} p_{x,s} \\
+		\text{in}_x :=& \sum_{s \in S}m_s p_{s,x} \\
+		m_x \xrightarrow{\text{update}}& m_x - \text{out}_x + \text{in}_x
+	\end{align*}
+	
+	This process is repeated $s$ times per year.
+	
+	\section{Optimisation}
+	
+	The model is 
+	
+\end{document}
